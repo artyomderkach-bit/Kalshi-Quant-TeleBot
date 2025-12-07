@@ -12,3 +12,11 @@ torch
 nltk
 textblob
 requests-cache
+
+# Statistical Arbitrage
+statsmodels
+scipy
+scikit-learn
+
+# Volatility Analysis
+arch

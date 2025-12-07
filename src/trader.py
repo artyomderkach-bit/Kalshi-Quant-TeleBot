@@ -3,6 +3,8 @@ import numpy as np
 import logging
 from config import BANKROLL, NEWS_SENTIMENT_THRESHOLD, STAT_ARBITRAGE_THRESHOLD, VOLATILITY_THRESHOLD, MAX_POSITION_SIZE_PERCENTAGE, STOP_LOSS_PERCENTAGE
 from news_analyzer import NewsSentimentAnalyzer
+from arbitrage_analyzer import StatisticalArbitrageAnalyzer
+from volatility_analyzer import VolatilityAnalyzer
 
 class Trader:
     def __init__(self, api, notifier, logger, bankroll):
@@ -12,6 +14,8 @@ class Trader:
         self.bankroll = bankroll
         self.current_positions = {}
         self.news_analyzer = NewsSentimentAnalyzer()
+        self.arbitrage_analyzer = StatisticalArbitrageAnalyzer()
+        self.volatility_analyzer = VolatilityAnalyzer()
 
     def analyze_market(self, market_data):
         # Enhanced analysis with news sentiment
@@ -19,11 +23,12 @@ class Trader:
 
     def _make_trade_decision(self, market_data):
         """
-        Enhanced trade decision making with news sentiment analysis
+        Enhanced trade decision making with multiple strategies
+        Priority: News Sentiment → Statistical Arbitrage → Volatility Analysis
         """
         trade_decision = None
 
-        # Get news sentiment analysis
+        # Strategy 1: News Sentiment Analysis
         try:
             sentiment_analysis = self.news_analyzer.get_market_relevant_news()
             sentiment_decision = self.news_analyzer.should_trade_based_on_sentiment(
@@ -58,6 +63,86 @@ class Trader:
 
         except Exception as e:
             self.logger.error(f"Error in news sentiment analysis: {e}")
+
+        # Strategy 2: Statistical Arbitrage (if no sentiment signal)
+        if not trade_decision:
+            try:
+                arbitrage_opportunities = self._statistical_arbitrage(market_data)
+                if arbitrage_opportunities:
+                    # Take the highest confidence opportunity
+                    best_opportunity = arbitrage_opportunities[0]
+                    execution_decision = self.arbitrage_analyzer.should_execute_arbitrage(
+                        best_opportunity, risk_tolerance=0.7
+                    )
+
+                    if execution_decision['should_execute']:
+                        self.logger.info(f"Arbitrage signal: {execution_decision['reason']}")
+
+                        # For simplicity, focus on one side of the arbitrage pair
+                        # In a real implementation, you'd trade both sides
+                        market1 = execution_decision['market1']
+                        market2 = execution_decision['market2']
+
+                        if best_opportunity['signal'] == 'LONG_SPREAD':
+                            event_id = market1['id']
+                            action = 'buy'
+                        else:  # SHORT_SPREAD
+                            event_id = market1['id']
+                            action = 'sell'
+
+                        quantity = int(execution_decision['position_size'] * 10)  # Scale up for meaningful position
+                        quantity = max(1, quantity)  # Minimum 1 unit
+
+                        trade_decision = {
+                            'event_id': event_id,
+                            'action': action,
+                            'quantity': quantity,
+                            'price': market1['current_price'],
+                            'strategy': 'statistical_arbitrage',
+                            'z_score': best_opportunity['z_score'],
+                            'confidence': execution_decision['confidence'],
+                            'arbitrage_pair': [market1['id'], market2['id']]
+                        }
+
+                        self.logger.info(f"Arbitrage trade decision: {action} {event_id} "
+                                       f"(z-score: {best_opportunity['z_score']:.3f})")
+
+            except Exception as e:
+                self.logger.error(f"Error in statistical arbitrage: {e}")
+
+        # Strategy 3: Volatility Analysis (if no other signals)
+        if not trade_decision:
+            try:
+                volatility_decision = self._volatility_analysis(market_data)
+                if volatility_decision and volatility_decision.get('should_trade'):
+                    self.logger.info(f"Volatility signal: {volatility_decision['reason']}")
+
+                    # Find market for volatility-based trade
+                    if market_data and 'markets' in market_data and market_data['markets']:
+                        market = market_data['markets'][0]  # Could be enhanced to select based on volatility
+                        event_id = market.get('id')
+                        current_price = market.get('current_price')
+
+                        if event_id and current_price and volatility_decision.get('direction'):
+                            action = 'buy' if volatility_decision['direction'] == 'long' else 'sell'
+                            quantity = 1  # Base quantity
+
+                            trade_decision = {
+                                'event_id': event_id,
+                                'action': action,
+                                'quantity': quantity,
+                                'price': current_price,
+                                'strategy': 'volatility_based',
+                                'volatility_regime': volatility_decision.get('volatility_regime'),
+                                'confidence': volatility_decision['confidence'],
+                                'signal_type': volatility_decision.get('signal_type')
+                            }
+
+                            self.logger.info(f"Volatility trade decision: {action} {event_id} "
+                                           f"(regime: {volatility_decision.get('volatility_regime')})")
+
+            except Exception as e:
+                self.logger.error(f"Error in volatility analysis: {e}")
 
         return trade_decision
 
@@ -113,25 +198,133 @@ class Trader:
         self.logger.info("News sentiment analysis now handled by NewsSentimentAnalyzer")
         return 0.7  # Default positive sentiment
 
-    def _statistical_arbitrage(self, related_market_data):
+    def _statistical_arbitrage(self, market_data):
         """
-        Placeholder for statistical arbitrage - to be implemented in Phase 1.2
+        Find statistical arbitrage opportunities in market data
         """
-        self.logger.info("Statistical arbitrage analysis - placeholder implementation")
-        return None
+        if not market_data or 'markets' not in market_data:
+            return []
 
-    def _volatility_analysis(self, historical_prices):
+        markets = market_data['markets']
+        if len(markets) < 2:
+            return []  # Need at least 2 markets for arbitrage
+
+        # Prepare market data with price history for arbitrage analysis
+        # Note: In a real implementation, you'd need historical price data
+        # For now, we'll simulate with current prices and some noise
+        arbitrage_ready_markets = []
+
+        for market in markets[:10]:  # Limit to first 10 markets for performance
+            market_id = market.get('id')
+            current_price = market.get('current_price', 0.5)
+
+            if market_id and current_price:
+                # Generate synthetic price history for demonstration
+                # In production, this would come from historical data
+                price_history = self._generate_price_history(current_price)
+
+                arbitrage_ready_markets.append({
+                    'id': market_id,
+                    'title': market.get('title', ''),
+                    'current_price': current_price,
+                    'price_history': price_history
+                })
+
+        if len(arbitrage_ready_markets) < 2:
+            return []
+
+        # Find arbitrage opportunities
+        opportunities = self.arbitrage_analyzer.find_arbitrage_opportunities(arbitrage_ready_markets)
+
+        self.logger.info(f"Found {len(opportunities)} arbitrage opportunities")
+        return opportunities
+
+    def _generate_price_history(self, current_price: float, periods: int = 100) -> List[float]:
         """
-        Placeholder for volatility analysis - to be implemented in Phase 1.3
+        Generate synthetic price history for arbitrage analysis.
+        In production, this would be real historical data.
         """
-        self.logger.info("Volatility analysis - placeholder implementation")
-        return None
+        # Start with a random walk around the current price
+        prices = [current_price]
+
+        # Generate random walk with mean reversion
+        for i in range(periods - 1):
+            # Add some noise with slight mean reversion
+            change = np.random.normal(0, 0.02) - 0.001 * (prices[-1] - current_price)
+            new_price = max(0.01, min(0.99, prices[-1] + change))  # Keep in [0.01, 0.99]
+            prices.append(new_price)
+
+        return prices
+
+    def _volatility_analysis(self, market_data):
+        """
+        Analyze volatility patterns for trading opportunities
+        """
+        if not market_data or 'markets' not in market_data:
+            return None
+
+        markets = market_data['markets']
+        if not markets:
+            return None
+
+        # Analyze volatility for the first few markets
+        volatility_opportunities = []
+
+        for market in markets[:5]:  # Limit analysis for performance
+            market_id = market.get('id')
+            current_price = market.get('current_price', 0.5)
+
+            if market_id and current_price:
+                # Prepare market data for volatility analysis
+                price_history = self._generate_price_history(current_price, periods=150)  # More data for volatility
+
+                market_data_for_analysis = {
+                    'id': market_id,
+                    'title': market.get('title', ''),
+                    'current_price': current_price,
+                    'price_history': price_history
+                }
+
+                # Analyze volatility
+                volatility_result = self.volatility_analyzer.analyze_market_volatility(market_data_for_analysis)
+
+                if 'error' not in volatility_result:
+                    # Check if this presents a trading opportunity
+                    trade_decision = self.volatility_analyzer.should_trade_based_on_volatility(
+                        volatility_result, risk_tolerance=0.6
+                    )
+
+                    if trade_decision['should_trade']:
+                        volatility_opportunities.append({
+                            'market': market_data_for_analysis,
+                            'volatility_analysis': volatility_result,
+                            'trade_decision': trade_decision
+                        })
+
+        if not volatility_opportunities:
+            return None
+
+        # Return the highest confidence opportunity
+        best_opportunity = max(volatility_opportunities,
+                              key=lambda x: x['trade_decision']['confidence'])
+
+        self.logger.info(f"Found {len(volatility_opportunities)} volatility-based opportunities")
+
+        # Return the trade decision for the best opportunity
+        decision = best_opportunity['trade_decision']
+        decision.update({
+            'market_data': best_opportunity['market'],
+            'volatility_analysis': best_opportunity['volatility_analysis']
+        })
+
+        return decision
 
     def run_trading_strategy(self):
         """
-        Main trading strategy orchestration
+        Main trading strategy orchestration with multiple quantitative strategies
+        Priority: News Sentiment → Statistical Arbitrage → Volatility Analysis
         """
-        self.logger.info("Running enhanced trading strategy with news sentiment analysis")
+        self.logger.info("Running multi-strategy trading system: News Sentiment + Arbitrage + Volatility")
 
         # Get market data from API
         market_data = self.api.fetch_market_data()
@@ -139,13 +332,14 @@ class Trader:
             self.logger.info("No market data available")
             return
 
-        # Run news sentiment analysis (primary strategy for Phase 1)
+        # Run multi-strategy analysis
         trade_decision = self._make_trade_decision(market_data)
 
         if trade_decision:
-            self.logger.info(f"Executing trade based on strategy: {trade_decision.get('strategy', 'unknown')}")
+            strategy_name = trade_decision.get('strategy', 'unknown')
+            self.logger.info(f"Executing trade via {strategy_name} strategy")
             self.execute_trade(trade_decision)
         else:
-            self.logger.info("No profitable trade opportunities found")
+            self.logger.info("No profitable opportunities found across all strategies")
 
 

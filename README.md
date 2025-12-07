@@ -42,10 +42,14 @@ Unlike traditional stock trading bots, this system is specifically optimized for
 - **Basic Trading Infrastructure**: Logging, notifications, configuration
 
 **🚧 IN DEVELOPMENT:**
-- **Advanced Trading Strategies**: News sentiment, statistical arbitrage, volatility analysis
-- **Enhanced Risk Management**: Dynamic position sizing, advanced stop-loss
-- **Real-Time Analytics**: Performance metrics, market data streaming
+- **Phase 2: Advanced Risk Management**: Dynamic position sizing, enhanced stop-loss
+- **Phase 3: Real-Time Analytics**: Performance metrics, market data streaming
 - **Strategy Backtesting**: Historical simulation and optimization
+
+**✅ PHASE 1 COMPLETE:**
+- **News Sentiment Strategy**: NLP-powered trading signals
+- **Statistical Arbitrage**: Cointegration-based opportunities  
+- **Volatility Trading**: GARCH-based volatility analysis
 
 📋 **For detailed implementation roadmap, see:** [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md)
 

@@ -60,10 +60,14 @@ def fetch_status(api: KalshiAPI) -> Dict[str, Any]:
     balance = fetch_balance(api)
     positions = fetch_positions(api)
 
+    # Note: Arbitrage analysis would require market data with price history
+    # This is included in the main trader loop, not here for performance
+
     return {
         "exchange_status": exchange_status,
         "balance_summary": balance.get("summary", {}),
         "positions_count": positions.get("count", 0),
+        "active_strategies": ["news_sentiment", "statistical_arbitrage", "volatility_based"],
         "timestamp": time.time(),
     }
 
