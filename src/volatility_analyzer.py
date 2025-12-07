@@ -102,7 +102,7 @@ class VolatilityAnalyzer:
 
             # Forecast next period volatility
             forecast = results.forecast(horizon=1)
-            forecast_vol = np.sqrt(forecast.variance.iloc[-1, 0])
+            forecast_vol = np.sqrt(forecast.variance.values[-1, 0])
 
             # Model diagnostics
             log_likelihood = results.loglikelihood
@@ -110,7 +110,7 @@ class VolatilityAnalyzer:
             bic = results.bic
 
             return {
-                'conditional_volatility': float(conditional_vol.iloc[-1]),
+                'conditional_volatility': float(conditional_vol[-1]),
                 'forecast_volatility': float(forecast_vol),
                 'model_params': {
                     'omega': float(results.params['omega']),
