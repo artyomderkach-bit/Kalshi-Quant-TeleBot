@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import logging
 import time
-from typing import List
+from typing import List, Dict, Any
 from config import BANKROLL, NEWS_SENTIMENT_THRESHOLD, STAT_ARBITRAGE_THRESHOLD, VOLATILITY_THRESHOLD, MAX_POSITION_SIZE_PERCENTAGE, STOP_LOSS_PERCENTAGE
 from news_analyzer import NewsSentimentAnalyzer
 from arbitrage_analyzer import StatisticalArbitrageAnalyzer

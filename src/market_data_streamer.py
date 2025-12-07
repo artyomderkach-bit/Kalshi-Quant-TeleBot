@@ -4,6 +4,7 @@
 import logging
 import time
 import threading
+import numpy as np
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
