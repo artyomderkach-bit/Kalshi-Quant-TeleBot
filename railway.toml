@@ -10,9 +10,3 @@ healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
-[variables]
-TELEGRAM_BOT_TOKEN = "8262379311:AAHJAM3rAj37nu9vO_bLgGAnh9hbQcsIiy8"
-TELEGRAM_CHAT_ID = "-1003361575892"
-KALSHI_API_BASE_URL = "https://api.elections.kalshi.com/trade-api/v2"
-BOT_INTERFACE_URL = "http://localhost:3001"
-INTERFACE_PORT = "3001"
