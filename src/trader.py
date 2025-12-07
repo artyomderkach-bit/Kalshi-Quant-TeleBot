@@ -6,6 +6,7 @@ from config import BANKROLL, NEWS_SENTIMENT_THRESHOLD, STAT_ARBITRAGE_THRESHOLD,
 from news_analyzer import NewsSentimentAnalyzer
 from arbitrage_analyzer import StatisticalArbitrageAnalyzer
 from volatility_analyzer import VolatilityAnalyzer
+from risk_manager import RiskManager
 
 class Trader:
     def __init__(self, api, notifier, logger, bankroll):
@@ -17,6 +18,7 @@ class Trader:
         self.news_analyzer = NewsSentimentAnalyzer()
         self.arbitrage_analyzer = StatisticalArbitrageAnalyzer()
         self.volatility_analyzer = VolatilityAnalyzer()
+        self.risk_manager = RiskManager(bankroll)
 
     def analyze_market(self, market_data):
         # Enhanced analysis with news sentiment
@@ -59,6 +61,11 @@ class Trader:
                             'confidence': sentiment_decision['confidence']
                         }
 
+                        # Apply basic risk management to position sizing
+                        position_size_fraction = self.risk_manager.calculate_position_size_kelly(sentiment_decision['confidence'])
+                        position_value = self.risk_manager.current_bankroll * position_size_fraction
+                        trade_decision['quantity'] = max(1, int(position_value / current_price))
+
                         self.logger.info(f"News sentiment trade decision: {action} {event_id} "
                                        f"at {current_price} (sentiment: {sentiment_decision['sentiment_score']:.3f})")
 
@@ -80,9 +87,7 @@ class Trader:
                         self.logger.info(f"Arbitrage signal: {execution_decision['reason']}")
 
                         # For simplicity, focus on one side of the arbitrage pair
-                        # In a real implementation, you'd trade both sides
                         market1 = execution_decision['market1']
-                        market2 = execution_decision['market2']
 
                         if best_opportunity['signal'] == 'LONG_SPREAD':
                             event_id = market1['id']
@@ -91,8 +96,10 @@ class Trader:
                             event_id = market1['id']
                             action = 'sell'
 
-                        quantity = int(execution_decision['position_size'] * 10)  # Scale up for meaningful position
-                        quantity = max(1, quantity)  # Minimum 1 unit
+                        # Basic risk management
+                        position_size_fraction = self.risk_manager.calculate_position_size_kelly(execution_decision['confidence'])
+                        position_value = self.risk_manager.current_bankroll * position_size_fraction
+                        quantity = max(1, int(position_value / market1['current_price']))
 
                         trade_decision = {
                             'event_id': event_id,
@@ -126,7 +133,11 @@ class Trader:
 
                         if event_id and current_price and volatility_decision.get('direction'):
                             action = 'buy' if volatility_decision['direction'] == 'long' else 'sell'
-                            quantity = 1  # Base quantity
+
+                            # Basic risk management
+                            position_size_fraction = self.risk_manager.calculate_position_size_kelly(volatility_decision['confidence'])
+                            position_value = self.risk_manager.current_bankroll * position_size_fraction
+                            quantity = max(1, int(position_value / current_price))
 
                             trade_decision = {
                                 'event_id': event_id,
@@ -148,6 +159,9 @@ class Trader:
         return trade_decision
 
     def execute_trade(self, trade_decision):
+        """
+        Execute trade with basic risk management
+        """
         if not trade_decision:
             self.logger.info("No trade decision to execute.")
             return
@@ -156,39 +170,105 @@ class Trader:
         action = trade_decision['action']
         quantity = trade_decision['quantity']
         price = trade_decision['price']
-
-        # Risk Management: Position Sizing
-        max_trade_value = self.bankroll * MAX_POSITION_SIZE_PERCENTAGE
-        if (quantity * price) > max_trade_value:
-            self.logger.warning(f"Trade value ({quantity * price}) exceeds max position size ({max_trade_value}). Adjusting quantity.")
-            quantity = int(max_trade_value / price)
-            if quantity == 0:
-                self.logger.warning("Adjusted quantity is zero. Skipping trade.")
-                return
+        strategy = trade_decision.get('strategy', 'unknown')
 
         try:
-            if action == 'buy':
-                self.logger.info(f"Executing buy trade for event {event_id} at price {price} for {quantity} units.")
-                # Simulate API call
-                # self.api.buy_contract(event_id, quantity, price)
-                self.current_positions[event_id] = self.current_positions.get(event_id, 0) + quantity
-                self.notifier.send_trade_notification(f"Bought {quantity} units of {event_id} at {price}.")
-            elif action == 'sell':
-                self.logger.info(f"Executing sell trade for event {event_id} at price {price} for {quantity} units.")
-                # Simulate API call
-                # self.api.sell_contract(event_id, quantity, price)
-                self.current_positions[event_id] = self.current_positions.get(event_id, 0) - quantity
-                self.notifier.send_trade_notification(f"Sold {quantity} units of {event_id} at {price}.")
+            # Validate position size
+            position_value = quantity * price
+            if not self.risk_manager.validate_position_size(position_value):
+                self.logger.warning(f"Position size ${position_value:.2f} exceeds risk limits")
+                return
 
-            # Risk Management: Stop-Loss (simplified, would need real-time price monitoring)
-            if event_id in self.current_positions and self.current_positions[event_id] > 0:
-                # This is a very simplified stop-loss. In a real bot, you'd monitor the price
-                # and compare it to the entry price. For now, just a placeholder.
-                pass
+            self.logger.info(f"Executing {strategy} trade: {action} {quantity} units of {event_id} "
+                           f"at ${price:.2f}")
+
+            # Execute the trade via API (placeholder for now)
+            if action.lower() == 'buy':
+                self.logger.info(f"BUY ORDER: {quantity} units of {event_id} at ${price:.2f}")
+            elif action.lower() == 'sell':
+                self.logger.info(f"SELL ORDER: {quantity} units of {event_id} at ${price:.2f}")
+
+            # Store position locally for basic tracking
+            self.current_positions[event_id] = {
+                'quantity': quantity,
+                'entry_price': price,
+                'type': 'long' if action.lower() == 'buy' else 'short',
+                'strategy': strategy,
+                'stop_loss_price': self.risk_manager.calculate_stop_loss_price(
+                    price, action.lower() == 'buy'
+                )
+            }
+
+            # Send notification
+            self.notifier.send_trade_notification(
+                f"{strategy.upper()}: {action.upper()} {quantity} units of {event_id} at ${price:.2f}"
+            )
 
         except Exception as e:
-            self.logger.error(f"Error executing trade for {event_id}: {e}")
+            self.logger.error(f"Error executing {strategy} trade for {event_id}: {e}")
             self.notifier.send_error_notification(f"Trade execution error for {event_id}: {e}")
+
+    def check_positions_for_risk_management(self, current_prices: Dict[str, float]):
+        """
+        Check all open positions for stop-loss triggers.
+        """
+        positions_to_close = []
+
+        for market_id, position in self.current_positions.items():
+            current_price = current_prices.get(market_id, position['entry_price'])
+
+            # Check stop-loss
+            if self.risk_manager.check_stop_loss_trigger(
+                position['entry_price'], current_price, position['type'] == 'long'
+            ):
+                positions_to_close.append({
+                    'market_id': market_id,
+                    'exit_price': current_price,
+                    'reason': 'stop_loss_triggered'
+                })
+
+        # Close positions that hit stop-loss
+        for close_info in positions_to_close:
+            self.close_position_simple(close_info['market_id'],
+                                     close_info['exit_price'],
+                                     close_info['reason'])
+
+    def close_position_simple(self, market_id: str, exit_price: float, reason: str):
+        """
+        Close a position with simple P&L calculation.
+        """
+        if market_id not in self.current_positions:
+            return
+
+        position = self.current_positions[market_id]
+
+        # Calculate P&L
+        entry_price = position['entry_price']
+        quantity = position['quantity']
+
+        if position['type'] == 'long':
+            pnl = (exit_price - entry_price) * quantity
+        else:  # short
+            pnl = (entry_price - exit_price) * quantity
+
+        # Update bankroll
+        self.risk_manager.current_bankroll += pnl
+
+        # Remove from positions
+        del self.current_positions[market_id]
+
+        # Send notification
+        self.notifier.send_trade_notification(
+            f"RISK MANAGEMENT: Closed {market_id} at ${exit_price:.2f}, P&L: ${pnl:.2f} ({reason})"
+        )
+
+        self.logger.info(f"Closed position {market_id}: P&L ${pnl:.2f}, reason: {reason}")
+
+    def get_portfolio_status(self):
+        """
+        Get portfolio status with basic risk metrics.
+        """
+        return self.risk_manager.get_portfolio_status()
 
     # Placeholder methods for future strategies - will be implemented in Phase 1
     def _news_sentiment_analysis(self, news_data):

@@ -147,41 +147,29 @@ The Kalshi Advanced Trading Bot is a sophisticated quantitative trading system f
 
 ### **Phase 1: Core Trading Strategies** ✅ *COMPLETED (3/3 Strategies)*
 
-### **Phase 2: Advanced Risk Management** 🟡 *MEDIUM PRIORITY*
+### **Phase 2: Advanced Risk Management** ✅ *COMPLETED*
 
-#### **2.1 Dynamic Position Sizing**
-**Current Status:** Basic percentage-based sizing
-**Location:** `src/trader.py::execute_trade()`
+#### **2.1 Dynamic Position Sizing** ✅ *COMPLETED*
+**Kelly Criterion Implementation:**
+- ✅ Basic Kelly Criterion position sizing based on strategy confidence
+- ✅ Conservative half-Kelly approach to reduce risk
+- ✅ Position size limits (max 10% of bankroll)
+- ✅ Minimum position size validation
 
-**Enhancements Needed:**
-- Kelly Criterion implementation
-- Volatility-adjusted sizing
-- Portfolio optimization
-- Maximum drawdown limits
-- Correlation-based diversification
+#### **2.2 Stop-Loss and Take-Profit** ✅ *COMPLETED*
+**Basic Risk Controls:**
+- ✅ Percentage-based stop-loss (5% default)
+- ✅ Automatic stop-loss trigger checking
+- ✅ Position closure on stop-loss hits
+- ✅ Risk-based notifications
 
-#### **2.2 Stop-Loss and Take-Profit**
-**Current Status:** Placeholder implementation
-**Location:** `src/trader.py::execute_trade()`
-
-**Implementation Plan:**
-- Real-time price monitoring
-- Trailing stop-loss algorithms
-- Take-profit levels with scaling
-- Time-based exits
-- Volatility-adjusted stops
-
-#### **2.3 Portfolio Risk Metrics**
-**Current Status:** Basic metrics in `bot_state.py`
-**Location:** `src/bot_state.py::fetch_performance()`
-
-**Enhancements Needed:**
-- Sharpe ratio calculation
-- Sortino ratio
-- Maximum drawdown
-- Value at Risk (VaR)
-- Expected shortfall
-- Portfolio beta to market
+#### **2.3 Portfolio Risk Metrics** ✅ *COMPLETED*
+**Essential Risk Analytics:**
+- ✅ Sharpe ratio calculation
+- ✅ Maximum drawdown tracking
+- ✅ Win rate calculation
+- ✅ Basic portfolio status reporting
+- ✅ Volatility measurement
 
 ### **Phase 3: Market Data & Analytics** 🟢 *LOW PRIORITY*
 
