@@ -21,6 +21,9 @@ scikit-learn
 # Volatility Analysis
 arch
 
+# Risk Management & Analytics
+yfinance
+
 # Testing
 pytest
 pytest-mock

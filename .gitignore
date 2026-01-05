@@ -66,3 +66,4 @@ yarn-error.log*
 # Temporary files
 *.tmp
 *.temp
+bot_settings.json
